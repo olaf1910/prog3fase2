@@ -1,0 +1,672 @@
+openapi: 3.0.3
+info:
+  title: FeedzzTrab API
+  description: |
+    API para gerir atribuições de tarefas no sistema FeedzzTrab.
+    
+    Hierarquia de Funções:
+    - Admin: Gestão completa de utilizadores
+    - Gerente: Criação e gestão de tarefas
+    - Líder de Equipa: Atribuição de tarefas e visualização
+    - Programador: Execução e atualização de tarefas atribuídas
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor de desenvolvimento local
+  - url: https://feedzztrab.example.com/api
+    description: Servidor de produção
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtido através do endpoint de login
+
+  schemas:
+    Utilizador:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nome_utilizador:
+          type: string
+          example: "programador1"
+          minLength: 1
+        email:
+          type: string
+          format: email
+          example: "programador1@exemplo.com"
+        funcao:
+          type: string
+          enum: [admin, gerente, lider_equipa, programador]
+          example: "programador"
+        criado_em:
+          type: string
+          format: date-time
+      required:
+        - id
+        - nome_utilizador
+        - email
+        - funcao
+
+    LoginRequest:
+      type: object
+      properties:
+        nome_utilizador:
+          type: string
+          example: "programador1"
+        palavra_passe:
+          type: string
+          example: "Senha123!"
+      required:
+        - nome_utilizador
+        - palavra_passe
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJ..."
+
+    NovoUtilizador:
+      type: object
+      properties:
+        nome_utilizador:
+          type: string
+          example: "programador2"
+          minLength: 1
+        palavra_passe:
+          type: string
+          example: "Senha123!"
+          pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+          description: "Mínimo 8 caracteres, uma maiúscula, uma minúscula, um número e um caractere especial"
+        email:
+          type: string
+          format: email
+          example: "programador2@exemplo.com"
+        funcao:
+          type: string
+          enum: [admin, gerente, lider_equipa, programador]
+          example: "programador"
+      required:
+        - nome_utilizador
+        - palavra_passe
+        - email
+        - funcao
+
+    AlterarPalavraPasse:
+      type: object
+      properties:
+        palavra_passe_atual:
+          type: string
+          example: "SenhaAtual123!"
+        nova_palavra_passe:
+          type: string
+          example: "NovaSenha123!"
+          pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+      required:
+        - palavra_passe_atual
+        - nova_palavra_passe
+
+    Tarefa:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        descricao:
+          type: string
+          example: "Desenvolver um módulo de autenticação"
+        criado_por:
+          type: integer
+          example: 2
+        estado:
+          type: string
+          enum: [nao_atribuida, atribuida, em_progresso, concluida]
+          example: "nao_atribuida"
+        criado_em:
+          type: string
+          format: date-time
+        atribuido_id:
+          type: integer
+          nullable: true
+          example: null
+        atribuido_nome:
+          type: string
+          nullable: true
+          example: null
+        inicio:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        fim:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+      required:
+        - id
+        - descricao
+        - criado_por
+        - estado
+
+    NovaTarefa:
+      type: object
+      properties:
+        descricao:
+          type: string
+          example: "Desenvolver um módulo de autenticação"
+      required:
+        - descricao
+
+    Atribuicao:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tarefa_id:
+          type: integer
+          example: 1
+        atribuido_a:
+          type: integer
+          example: 4
+        atribuido_por:
+          type: integer
+          example: 3
+        inicio:
+          type: string
+          format: date-time
+          nullable: true
+        fim:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - tarefa_id
+        - atribuido_a
+        - atribuido_por
+
+    NovaAtribuicao:
+      type: object
+      properties:
+        tarefa_id:
+          type: integer
+          example: 1
+        atribuido_a:
+          type: integer
+          example: 4
+      required:
+        - tarefa_id
+        - atribuido_a
+
+    AtualizarAtribuicao:
+      type: object
+      properties:
+        inicio:
+          type: string
+          format: date-time
+          nullable: true
+        fim:
+          type: string
+          format: date-time
+          nullable: true
+
+    Erro:
+      type: object
+      properties:
+        mensagem:
+          type: string
+          example: "Acesso não autorizado"
+      required:
+        - mensagem
+
+security:
+  - bearerAuth: []
+
+paths:
+  /utilizadores/login:
+    post:
+      summary: Autenticar utilizador
+      tags:
+        - Autenticação
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login bem sucedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /utilizadores:
+    post:
+      summary: Criar um novo utilizador (apenas Admin)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovoUtilizador'
+      responses:
+        '201':
+          description: Utilizador criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilizador'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+    get:
+      summary: Listar todos os utilizadores (Admin e Líder de Equipa)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de utilizadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Utilizador'
+        '403':
+          description: Proibido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /utilizadores/{utilizador_id}:
+    get:
+      summary: Obter detalhes de um utilizador (Admin ou próprio utilizador)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: utilizador_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalhes do utilizador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilizador'
+        '403':
+          description: Proibido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Utilizador não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+    put:
+      summary: Atualizar um utilizador (apenas Admin)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: utilizador_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nome_utilizador:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                funcao:
+                  type: string
+                  enum: [admin, gerente, lider_equipa, programador]
+      responses:
+        '200':
+          description: Utilizador atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Utilizador'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Utilizador não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+    delete:
+      summary: Eliminar um utilizador (apenas Admin)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: utilizador_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Utilizador eliminado com sucesso
+        '403':
+          description: Proibido (não é admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Utilizador não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /utilizadores/{utilizador_id}/palavra_passe:
+    patch:
+      summary: Alterar a palavra-passe do utilizador (próprio utilizador)
+      tags:
+        - Utilizadores
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: utilizador_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarPalavraPasse'
+      responses:
+        '200':
+          description: Palavra-passe alterada com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                    example: "Palavra-passe alterada com sucesso"
+        '400':
+          description: Palavra-passe atual incorreta ou nova palavra-passe inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é o próprio utilizador)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /tarefas:
+    post:
+      summary: Criar uma nova tarefa (apenas Gerente)
+      tags:
+        - Tarefas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovaTarefa'
+      responses:
+        '201':
+          description: Tarefa criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarefa'
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é gerente)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+    get:
+      summary: Listar tarefas (Gerente vê as suas, Líder de Equipa e Programador veem todas)
+      tags:
+        - Tarefas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de tarefas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tarefa'
+        '403':
+          description: Proibido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /tarefas/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    put:
+      summary: Atualizar uma tarefa não atribuída (apenas Gerente)
+      tags:
+        - Tarefas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovaTarefa'
+      responses:
+        '200':
+          description: Tarefa atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarefa'
+        '403':
+          description: Proibido (não é gerente ou tarefa já atribuída)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Tarefa não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+    delete:
+      summary: Eliminar uma tarefa não atribuída (apenas Gerente)
+      tags:
+        - Tarefas
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Tarefa eliminada com sucesso
+        '403':
+          description: Proibido (não é gerente ou tarefa já atribuída)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Tarefa não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /atribuicoes:
+    post:
+      summary: Atribuir uma tarefa a um programador (apenas Líder de Equipa)
+      tags:
+        - Atribuições
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NovaAtribuicao'
+      responses:
+        '201':
+          description: Tarefa atribuída com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Atribuicao'
+        '400':
+          description: Tarefa inválida ou já atribuída
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é líder de equipa)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '409':
+          description: Conflito (programador tem uma tarefa ativa)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+
+  /atribuicoes/{id}:
+    patch:
+      summary: Atualizar horário de início/fim de uma atribuição (apenas Programador)
+      tags:
+        - Atribuições
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarAtribuicao'
+      responses:
+        '200':
+          description: Atribuição atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarefa'
+        '400':
+          description: Dados inválidos ou estado inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '403':
+          description: Proibido (não é o programador atribuído)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+        '404':
+          description: Atribuição não encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
